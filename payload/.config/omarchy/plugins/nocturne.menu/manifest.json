@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.menu",
+  "name": "Nocturne Menu",
+  "version": "1.0.0",
+  "author": "Omarchy contributors and Vitor Ferreira",
+  "description": "Adaptive Nocturne launcher and keyboard shortcut browser",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "menu": "Menu.qml"
+  },
+  "barWidget": {
+    "displayName": "Nocturne Menu Button",
+    "description": "Launches the Omarchy menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  },
+  "keepLoaded": true,
+  "omarchy": {
+    "clonedFrom": "omarchy.menu"
+  }
+}

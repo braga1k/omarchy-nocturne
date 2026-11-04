@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.bar",
+  "name": "Nocturne Bar",
+  "version": "1.0.0",
+  "author": "Omarchy contributors and Vitor Ferreira",
+  "description": "Status bar with widgets",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.bar"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.power",
+  "name": "Nocturne Power",
+  "version": "1.0.0",
+  "author": "Omarchy contributors and Vitor Ferreira",
+  "description": "Battery, power profile, and system stats",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "My Power",
+    "description": "Battery, power profile, and system stats",
+    "category": "System",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.power"
+  }
+}

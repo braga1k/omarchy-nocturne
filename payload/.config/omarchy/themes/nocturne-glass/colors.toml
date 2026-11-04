@@ -1,0 +1,35 @@
+# Nocturne — inspirado em wallhaven-7jr8jv.png
+mode = "dark"
+
+accent = "#ABA7EB"
+selection = "#383A59"
+muted = "#646B8B"
+
+background = "#181A28"
+dark_background = "#121420"
+darker_background = "#0E0F1B"
+lighter_background = "#25293F"
+
+foreground = "#E0E3F2"
+dark_foreground = "#9098B5"
+light_foreground = "#B9C1DA"
+bright_foreground = "#F0F1FA"
+
+red = "#DE91A0"
+yellow = "#D9C49A"
+orange = "#D4AD98"
+green = "#A4C6AF"
+cyan = "#98C4D2"
+blue = "#96ADE4"
+magenta = "#B7A6DE"
+brown = "#A58E9F"
+
+bright_red = "#EEA9B4"
+bright_yellow = "#E8D6B3"
+bright_green = "#BDDAC5"
+bright_cyan = "#B1DAE3"
+bright_blue = "#B5C7F1"
+bright_magenta = "#CEBFF0"
+
+hyprland_active_border = "#ABA7EB #6F8ABB 45deg"
+hyprland_inactive_border = "#363B54"

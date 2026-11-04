@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.network",
+  "name": "Nocturne Network",
+  "version": "1.0.0",
+  "author": "Omarchy contributors and Vitor Ferreira",
+  "description": "Wi-Fi list and connection state",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "My Network",
+    "description": "Wi-Fi list and connection state",
+    "category": "Network",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.network"
+  }
+}

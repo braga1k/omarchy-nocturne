@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.emojis",
+  "name": "Nocturne Emojis",
+  "version": "1.0.0",
+  "author": "Omarchy contributors and Vitor Ferreira",
+  "description": "Search, copy, and type emojis",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Emojis.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.emojis"
+  }
+}

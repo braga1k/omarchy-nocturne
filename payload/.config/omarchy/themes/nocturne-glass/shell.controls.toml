@@ -1,0 +1,24 @@
+# Destaques discretos em lavanda.
+[controls]
+normal-color = "#E0E3F2"
+normal-fill-alpha = 0.04
+normal-border = "#9098B5"
+normal-border-width = 1
+normal-border-alpha = 0.3
+hover-cursor-color = "#E0E3F2"
+hover-cursor-fill-alpha = 0.08
+hover-cursor-border = "#ABA7EB"
+hover-cursor-border-width = 1
+hover-cursor-border-alpha = 0.55
+focus-color = "#E0E3F2"
+focus-fill-alpha = 0.08
+focus-border = "#ABA7EB"
+focus-border-width = 1
+focus-border-alpha = 0.75
+selected-color = "#ABA7EB"
+selected-fill-alpha = 0.15
+selected-border = "#ABA7EB"
+selected-border-width = 1
+selected-border-alpha = 0.4
+pressed-fill-alpha = 0.22
+selection-fill-alpha = 0.35

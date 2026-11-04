@@ -1,0 +1,7 @@
+[popups]
+background = "#181A28"
+background-alpha = 0.92
+text = "#E0E3F2"
+border = "#626587"
+border-width = 1
+border-alpha = 0.46

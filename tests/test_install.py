@@ -1,0 +1,136 @@
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+spec = importlib.util.spec_from_file_location('installer', Path(__file__).resolve().parents[1] / 'install.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+
+class InstallerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name) / 'home'
+        self.stock = Path(self.tmp.name) / 'stock'
+        (self.home / '.config/hypr').mkdir(parents=True)
+        (self.stock / 'config/omarchy').mkdir(parents=True)
+        self.hypr = self.home / '.config/hypr/hyprland.lua'
+        self.hypr.write_text('require("default.hypr.omarchy")\nrequire("hypr.omacontrol")\nrequire("default.hypr.toggles")\n')
+        self.config = {'version': 1, 'idle': {'lock': 900}, 'bar': {'centerAnchor': 'omarchy.clock', 'layout': {
+            'left': [{'id': 'omarchy.menu'}], 'center': [{'id': 'omarchy.clock', 'format': 'HH:mm'}],
+            'right': [{'id': 'thirdparty.audio'}, {'id': 'omarchy.tray', 'pinned': ['custom-app']}] }},
+            'plugins': [{'id': 'custom.service', 'option': 'keep'}], 'disabledPlugins': ['omarchy.emojis']}
+        (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
+
+    def test_roundtrip_and_preferences(self):
+        original = self.hypr.read_bytes()
+        m.install(self.home, self.stock, True)
+        shell = self.home / '.config/omarchy/shell.json'
+        data = json.loads(shell.read_text())
+        self.assertEqual(data['idle'], self.config['idle'])
+        self.assertEqual(data['bar']['layout']['center'][0]['format'], 'HH:mm')
+        self.assertEqual(data['bar']['layout']['right'][1]['pinned'], ['custom-app'])
+        self.assertEqual(data['bar']['layout']['right'][0]['id'], 'thirdparty.audio')
+        self.assertIn('omarchy.emojis', data['disabledPlugins'])
+        self.assertNotIn({'id': 'nocturne.emojis'}, data['plugins'])
+        text = self.hypr.read_text()
+        self.assertLess(text.index('hypr.nocturne-motion'), text.index('hypr.omacontrol'))
+        extra = self.home / '.config/omarchy/plugins/nocturne.menu/my-extra.txt'
+        extra.write_text('keep')
+        m.uninstall(self.home, True)
+        self.assertEqual(self.hypr.read_bytes(), original)
+        self.assertFalse(shell.exists())
+        self.assertEqual(extra.read_text(), 'keep')
+
+    def test_dry_run_has_no_writes(self):
+        before = sorted(str(p) for p in self.home.rglob('*'))
+        m.install(self.home, self.stock)
+        self.assertEqual(before, sorted(str(p) for p in self.home.rglob('*')))
+
+    def test_conflict_refuses_before_writing(self):
+        m.install(self.home, self.stock, True)
+        self.hypr.write_text(self.hypr.read_text() + '-- my new preference\n')
+        with self.assertRaisesRegex(ValueError, 'Changed since'):
+            m.uninstall(self.home, True)
+        self.assertTrue((self.home / '.config/omarchy/ui/nocturne/LaunchMorph.qml').exists())
+        self.assertIn('my new preference', self.hypr.read_text())
+
+    def test_symlink_parent_refused(self):
+        outside = Path(self.tmp.name) / 'outside'
+        outside.mkdir()
+        (self.home / '.config/omarchy').symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            m.install(self.home, self.stock, True)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_failed_write_restores_prior_files(self):
+        original = self.hypr.read_bytes()
+        atomic = m.atomic
+        counter = [0]
+        def fail_once(path, data, **kwargs):
+            counter[0] += 1
+            if counter[0] == 8:
+                raise OSError('simulated disk error')
+            return atomic(path, data, **kwargs)
+        m.atomic = fail_once
+        try:
+            with self.assertRaisesRegex(OSError, 'simulated'):
+                m.install(self.home, self.stock, True)
+        finally:
+            m.atomic = atomic
+        self.assertEqual(self.hypr.read_bytes(), original)
+        self.assertFalse((self.home / m.STATE).exists())
+        self.assertFalse(any(p.is_file() for p in (self.home / '.config/omarchy').rglob('*')))
+
+    def test_chmod_failure_restores_written_script(self):
+        original = Path.chmod
+        failed = [False]
+        def fail_once(path, mode, *args, **kwargs):
+            if path.name == 'capture.sh' and mode == 0o755 and not failed[0]:
+                failed[0] = True
+                raise OSError('injected chmod failure')
+            return original(path, mode, *args, **kwargs)
+        Path.chmod = fail_once
+        try:
+            with self.assertRaisesRegex(OSError, 'injected chmod'):
+                m.install(self.home, self.stock, True)
+        finally:
+            Path.chmod = original
+        self.assertTrue(failed[0])
+        self.assertFalse((self.home / m.STATE).exists())
+        self.assertFalse(any(p.is_file() for p in (self.home / '.config/omarchy').rglob('*')))
+
+    def test_backup_private_before_atomic_publish(self):
+        original = m.os.replace
+        modes = []
+        def observe(src, dst):
+            if Path(dst) == self.home / m.STATE:
+                modes.append(Path(src).stat().st_mode & 0o777)
+            return original(src, dst)
+        m.os.replace = observe
+        try:
+            m.install(self.home, self.stock, True)
+        finally:
+            m.os.replace = original
+        self.assertEqual(modes, [0o600, 0o600])
+
+    def test_custom_clone_is_not_silently_skipped(self):
+        self.config['bar']['layout']['left'] = [{'id': 'custom.menu'}]
+        (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
+        plugin = self.home / '.config/omarchy/plugins/custom.menu'
+        plugin.mkdir(parents=True)
+        (plugin / 'manifest.json').write_text(json.dumps({'omarchy': {'clonedFrom': 'omarchy.menu'}}))
+        with self.assertRaisesRegex(ValueError, 'Active custom clone'):
+            m.install(self.home, self.stock, True)
+        self.assertFalse((self.home / m.STATE).exists())
+
+    def test_state_path_cannot_escape(self):
+        with self.assertRaises(ValueError):
+            m.safe_path(self.home, '../../outside')
+
+
+if __name__ == '__main__':
+    unittest.main()
