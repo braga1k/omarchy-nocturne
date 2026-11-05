@@ -66,3 +66,20 @@ again; do not restore the original broken helper from a backup.
 
 A fresh SDDM login and physical reboot were not repeated as part of the release
 verification. These tests do not certify every future Hyprland version.
+
+## Updating the renderer and other files
+
+`repair-startup` updates only the helper; it does not install a new renderer or menu. For a complete update, use the installer’s checked uninstall/reinstall flow from a terminal:
+
+```sh
+git pull --ff-only
+python3 install.py uninstall         # inspect; refuses modified managed files
+python3 install.py uninstall --apply
+python3 install.py install           # inspect the new installation
+python3 install.py install --apply
+hyprctl reload
+hyprctl configerrors
+omarchy restart shell
+```
+
+Keep the installation record and original backups. If uninstall reports a conflict, preserve and reconcile your local edits before proceeding; do not delete the state or force overwrite. The original preferences are restored by uninstall and merged again by install. Changes made to managed files since installation require that explicit reconciliation. Manual installations should compare the payload and preserve their own backups.

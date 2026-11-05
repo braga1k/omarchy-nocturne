@@ -114,6 +114,7 @@ Item {
     token = Date.now().toString(36) + "-" + Math.floor(Math.random()*1e8).toString(36)
     var request = {id:id,label:name,ticket:token,launched:false}
     var entry = DesktopEntries.byId(id)
+    var executable = entry && entry.command && entry.command.length ? String(entry.command[0]) : ""
     var classes = [id]
     if (entry && entry.startupClass) classes.push(entry.startupClass)
     // Terminal desktop entries open a terminal, not a uniquely identifiable app.
@@ -121,7 +122,7 @@ Item {
     active = true; phase = "arming"
     arm.ticket = token
     arm.pendingRequest = request
-    arm.command = command("return nocturneLaunch.arm("+quote(token)+",{"+classes.map(quote).join(",")+"})")
+    arm.command = command("return nocturneLaunch.arm("+quote(token)+",{"+classes.map(quote).join(",")+"},"+quote(executable)+")")
     arm.running = true
     timeout.restart()
     return true
@@ -138,7 +139,7 @@ Item {
     cancel()
   }
   function consumeStatus(value) {
-    if (!active || phase === "arming" || phase === "handoff") return
+    if (!active || phase === "arming" || phase === "handoff" || phase === "fallback") return
     var fields = value.trim().split("\t")
     if (fields[0] === "held" && fields.length >= 6) {
       address = fields[1]
@@ -184,7 +185,7 @@ Item {
     }
   }
   Timer {
-    interval: 55; repeat: true; running: root.active && root.phase !== "arming" && root.phase !== "handoff"
+    interval: 55; repeat: true; running: root.active && ["waiting", "capturing", "moving"].indexOf(root.phase) >= 0
     onTriggered: if (!poll.running) {
       poll.ticket = root.token
       poll.command = root.command("return nocturneLaunch.status("+root.quote(root.token)+")")
@@ -207,7 +208,20 @@ Item {
       fadeOut.restart()
     }
   }
-  NumberAnimation { id: fadeOut; target: root; property: "alpha"; to: 0; duration: 90; onFinished: root.finish() }
+  NumberAnimation {
+    id: fadeOut; target: root; property: "alpha"; to: 0; duration: 90
+    onFinished: root.phase === "fallback" ? root.cancel() : root.finish()
+  }
+  Timer {
+    // Native launch feedback owns slow/unknown applications. Do not leave a
+    // stationary selection overlay behind while waiting for a class match.
+    interval: 650; running: root.active && root.phase === "waiting"
+    onTriggered: {
+      root.cancelTicket(root.token)
+      root.phase = "fallback"
+      fadeOut.restart()
+    }
+  }
   Timer { id: timeout; interval: 7400; onTriggered: root.cancel() }
   Timer { id: settle; interval: 40; onTriggered: root.reveal() }
   Timer {
@@ -299,8 +313,14 @@ Item {
       }
       ShaderEffectSource {
         id: surfaceTexture
-        sourceItem: surface; hideSource: true; live: root.active
-        sourceRect: Qt.rect(0,0,surface.width,surface.height)
+        // One native-resolution render target per launch, including spring
+        // overshoot. Cropping happens in the shader, not by resizing the FBO
+        // every frame. This keeps text at 1:1 scale throughout the morph.
+        sourceItem: root.active && window.visible ? surface : null
+        hideSource: true; live: true
+        sourceRect: Qt.rect(0, 0,
+          Math.ceil(Math.max(root.origin.width, root.destination.width) * 1.04),
+          Math.ceil(Math.max(root.origin.height, root.destination.height) * 1.04))
         visible: false
       }
       ShaderEffect {
@@ -310,6 +330,7 @@ Item {
         opacity: root.alpha
         property var source: surfaceTexture
         property vector2d size: Qt.vector2d(width,height)
+        property vector2d sourceSize: Qt.vector2d(surfaceTexture.sourceRect.width, surfaceTexture.sourceRect.height)
         property real extent: outset
         property real radius: root.startRadius+(root.endRadius-root.startRadius)*Math.min(1,root.progress)
         property real power: 2+(root.nativePower-2)*root.decorationMix

@@ -1,8 +1,11 @@
 -- Native, bounded handoff between the launcher surface and a real window.
 -- No client resizing, compositor plugin, or persistent per-window overrides.
+-- Omarchy's keybinding scanner evaluates config with callable table stubs.
+-- It has no windows: iterating its infinite proxy with ipairs never terminates.
+if type(hl.get_windows) ~= 'function' then return {} end
 if nocturneLaunch then nocturneLaunch.cancel() end
 local M = { token = '', phase = 'idle', remaining = 0, address = '', classes = {} }
-local startWatchdog
+local startWatchdog, watchdog
 nocturneLaunch = M
 local HOLD, QUIET = 'nocturne-launch-held', 'nocturne-launch-handoff'
 
@@ -21,6 +24,7 @@ function M.cancel(token)
   if token and token ~= M.token then return 'stale' end
   local address = M.address
   M.phase, M.address, M.remaining = 'idle', '', 0
+  if watchdog then watchdog:set_enabled(false) end
   tag(address, '-' .. HOLD)
   tag(address, '-' .. QUIET)
   -- config.reloaded also runs at cold start, before the input manager exists.
@@ -33,7 +37,18 @@ local function matches(w)
   if not w or not w.mapped then return false end
   local class = string.lower(w.class or '')
   local initial = string.lower(w.initial_class or '')
-  return M.classes[class] or M.classes[initial]
+  if M.classes[class] or M.classes[initial] then return true end
+  -- Some Wayland apps advertise a reverse-DNS app ID but their desktop entry
+  -- still declares the short X11 class. Require BOTH the namespace leaf and
+  -- the actual process name to match the selected executable, never a title.
+  local leaf = class:match('%.([^%.]+)$')
+  if not leaf or not M.classes[leaf] or leaf ~= M.executable or not w.pid then return false end
+  local pid = tonumber(w.pid)
+  if not pid or pid <= 0 or pid % 1 ~= 0 then return false end
+  local process = io.open('/proc/' .. string.format('%d', pid) .. '/comm', 'r')
+  if not process then return false end
+  local name = process:read('*l'); process:close()
+  return name and string.lower(name) == M.executable
 end
 
 local function claim(w)
@@ -43,10 +58,11 @@ local function claim(w)
   hl.exec_scheduled_prop_refresh_immediately()
 end
 
-function M.arm(token, classes)
+function M.arm(token, classes, executable)
   M.cancel()
   if hl.get_config('animations.enabled') == false then return 'disabled' end
   M.token, M.classes = token, {}
+  M.executable = string.lower(tostring(executable or ''):match('([^/]+)$') or '')
   for _, value in ipairs(classes) do
     if type(value) == 'string' and #value > 1 then M.classes[string.lower(value)] = true end
   end
@@ -105,9 +121,12 @@ cleanupTags()
 -- A shell crash, canceled launcher or failed capture cannot strand a client.
 -- The already-active, single-instance case may produce no activation event.
 -- Start only when a launch is armed: --verify-config has no event loop.
-local watchdog
 startWatchdog = function()
-  if watchdog then return end
+  if watchdog then
+    watchdog:set_timeout(100)
+    watchdog:set_enabled(true)
+    return
+  end
   watchdog = hl.timer(function()
   if M.phase == 'idle' then return end
   M.remaining = M.remaining - 100

@@ -16,6 +16,7 @@ PAYLOAD = ROOT / 'payload'
 STATE = '.local/state/omarchy-nocturne/install.json'
 LAUNCH_HELPER = '.config/hypr/nocturne-launch.lua'
 BROKEN_LAUNCH_SHA256 = '785701d2993f367c34d22bd499cdd757518b316f26fc112c04ccad2758bbb887'
+STARTUP_FIXED_LAUNCH_SHA256 = '80c7ca7aae9ef57c6ec56025f12632329882c51bfbce98b5d281869dcaf3b5fb'
 BEGIN = '-- BEGIN OMARCHY NOCTURNE'
 END = '-- END OMARCHY NOCTURNE'
 BLOCK = BEGIN + '\nrequire("hypr.nocturne-motion")\nrequire("hypr.nocturne-launch")\n' + END + '\n'
@@ -223,7 +224,7 @@ def repair_startup(home, apply=False):
         raise ValueError('Launch helper differs from payload.sha256.json.')
     path = safe_path(home, LAUNCH_HELPER)
     current = digest(path.read_bytes())
-    allowed = (BROKEN_LAUNCH_SHA256, fixed)
+    allowed = (BROKEN_LAUNCH_SHA256, STARTUP_FIXED_LAUNCH_SHA256, fixed)
     if current not in allowed:
         raise ValueError('Custom launch helper differs; nothing changed. See docs/RECOVERY.md.')
     state_path = safe_path(home, STATE)

@@ -1,9 +1,10 @@
 # Omarchy Nocturne
 
-**Startup hotfix — v1.0.1:** the initial public version could crash Hyprland at
-login. Existing users should update their checkout and run
-`python3 install.py repair-startup --apply`. Pulling alone does not update the
-installed helper. See [TTY recovery and the fix](docs/RECOVERY.md).
+**v1.0.2:** fixes shortcut discovery and T3/Wayland launch matching, and reduces
+morph rendering work. Includes the v1.0.1 startup-crash fix. Existing installations
+need an explicit update; pulling alone does not replace installed files.
+See [recovery and complete update instructions](docs/RECOVERY.md) and
+[measured resources](docs/PERFORMANCE.md).
 
 A dark glass interface for Omarchy, with adaptive menus, organic motion, and a continuous transition from an app selection to its window.
 
@@ -33,6 +34,10 @@ These are captures of real QML components from the same installed Omarchy versio
 | ![Stock Font menu](docs/media/stock-font.png) | ![Nocturne Font menu](docs/media/nocturne-font.png) |
 | ![Stock keyboard shortcuts](docs/media/stock-shortcuts.png) | ![Nocturne keyboard shortcuts](docs/media/nocturne-shortcuts.png) |
 | ![Stock app list](docs/media/stock-apps.png) | ![Nocturne app list](docs/media/nocturne-apps.png) |
+
+## Measured resources
+
+[Resource measurements, raw counters and methodology](docs/PERFORMANCE.md) compare native stock components with Nocturne and document the launch-renderer optimization. Results are specific to the tested hardware and workloads.
 
 ## Compatibility
 

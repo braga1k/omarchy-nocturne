@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.2 — 2026-11-05
+
+- Bound morph render-target allocation and skip unnecessary interior border shading; publish raw resource measurements and their limits.
+- Stop the launch watchdog while idle and reactivate it for the next launch.
+- Prevent the native keybinding scanner and key promoter from spinning in a Lua proxy loop.
+- Recognize corroborated reverse-DNS Wayland identities, including T3 Code, without title matching.
+- Return slow or unsupported launches to native feedback after 650 ms.
+
 ## v1.0.1 — 2026-11-05
 
 Fix a startup crash in the launcher morph helper that could return users to the

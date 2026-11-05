@@ -5,6 +5,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
     vec2 size;
+    vec2 sourceSize;
     float extent;
     float radius;
     float power;
@@ -37,10 +38,17 @@ vec3 fromLab(vec3 c) {
 void main() {
     vec2 pos = qt_TexCoord0 * size;
     vec2 innerSize = size - vec2(2.*extent);
-    vec2 uv = (pos - vec2(extent)) / innerSize;
+    vec2 uv = (pos - vec2(extent)) / sourceSize;
     float outer = coverage(pos,size,radius+extent,power);
     float inside = coverage(pos-vec2(thickness), size-vec2(2.*thickness), max(0.,radius+extent-thickness),power);
     vec4 content = texture(source,clamp(uv,vec2(0),vec2(1)));
+    // Interior pixels need neither the border gradient nor its color-space
+    // conversions. This is the exact fully-covered branch of the expression
+    // below; keep antialiased boundary pixels on the original path.
+    if (inside >= 1. && outer >= 1.) {
+        fragColor = content * qt_Opacity;
+        return;
+    }
     float a = mod(angle,360.); vec2 g = qt_TexCoord0;
     if(a>270.) { g.y=1.-g.y; a=360.-a; }
     else if(a>180.) { g=1.-g; a-=180.; }
