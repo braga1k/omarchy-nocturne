@@ -1,5 +1,10 @@
 # Omarchy Nocturne
 
+**Startup hotfix — v1.0.1:** the initial public version could crash Hyprland at
+login. Existing users should update their checkout and run
+`python3 install.py repair-startup --apply`. Pulling alone does not update the
+installed helper. See [TTY recovery and the fix](docs/RECOVERY.md).
+
 A dark glass interface for Omarchy, with adaptive menus, organic motion, and a continuous transition from an app selection to its window.
 
 **Community customization for Omarchy 4.0.6 / Quickshell / Lua Hyprland.** This is a user-local collection of plugin clones and theme files. It is not an official Omarchy release.
@@ -87,6 +92,9 @@ See [validation](docs/VALIDATION.md) for the evidence and its limits, and [archi
 The capture-based motion assessment is at **60 FPS**. It does not certify physical 360 Hz smoothness or input latency. Multi-window applications, ambiguous window classes, splash screens, hotplug, arbitrary per-window decorations, and all third-party tray menus are not universally covered. Unsupported or interrupted launches fall back to the native window, and a compositor-side watchdog prevents an abandoned capture from leaving it hidden.
 
 ## Development
+
+Tests require Python 3.11+ and Lua 5.4 or newer. Startup regression tests are
+mandatory in CI; a missing Lua interpreter is a failure, not a skipped test.
 
 ```sh
 python3 -m unittest discover -s tests -v

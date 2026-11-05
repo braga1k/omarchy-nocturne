@@ -131,6 +131,81 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.safe_path(self.home, '../../outside')
 
+    def broken_installation(self):
+        m.install(self.home, self.stock, True)
+        old = (m.ROOT / 'tests/fixtures/launch-before-startup-fix.lua.txt').read_bytes()
+        self.assertEqual(m.digest(old), m.BROKEN_LAUNCH_SHA256)
+        helper = self.home / m.LAUNCH_HELPER
+        helper.write_bytes(old)
+        state = self.home / m.STATE
+        record = json.loads(state.read_text())
+        record['files'][m.LAUNCH_HELPER]['after'] = m.BROKEN_LAUNCH_SHA256
+        state.write_text(json.dumps(record))
+        return helper, state, record
+
+    def test_startup_repair_preserves_backup_and_uninstall(self):
+        original_hypr = self.hypr.read_bytes()
+        helper, state, record = self.broken_installation()
+        m.repair_startup(self.home, True)
+        self.assertEqual(helper.read_bytes(), (m.PAYLOAD / m.LAUNCH_HELPER).read_bytes())
+        record['files'][m.LAUNCH_HELPER]['after'] = m.digest(helper.read_bytes())
+        self.assertEqual(json.loads(state.read_text()), record)
+        self.assertEqual(state.stat().st_mode & 0o777, 0o600)
+        m.repair_startup(self.home, True)  # Repeated repair is harmless.
+        m.uninstall(self.home, True)
+        self.assertFalse(helper.exists())
+        self.assertEqual(self.hypr.read_bytes(), original_hypr)
+
+    def test_startup_repair_dry_run(self):
+        helper, state, _ = self.broken_installation()
+        before = (helper.read_bytes(), state.read_bytes())
+        m.repair_startup(self.home)
+        self.assertEqual((helper.read_bytes(), state.read_bytes()), before)
+
+    def test_startup_repair_refuses_custom_helper(self):
+        helper, state, _ = self.broken_installation()
+        helper.write_bytes(helper.read_bytes() + b'\n-- user modification\n')
+        before = (helper.read_bytes(), state.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'Custom launch helper'):
+            m.repair_startup(self.home, True)
+        self.assertEqual((helper.read_bytes(), state.read_bytes()), before)
+
+    def test_startup_repair_resumes_after_state_write_failure(self):
+        helper, state, _ = self.broken_installation()
+        old_record = state.read_bytes()
+        atomic = m.atomic
+        def fail_state(path, data, **kwargs):
+            if path == state:
+                raise OSError('injected state failure')
+            return atomic(path, data, **kwargs)
+        m.atomic = fail_state
+        try:
+            with self.assertRaisesRegex(OSError, 'injected state'):
+                m.repair_startup(self.home, True)
+        finally:
+            m.atomic = atomic
+        self.assertEqual(helper.read_bytes(), (m.PAYLOAD / m.LAUNCH_HELPER).read_bytes())
+        self.assertEqual(state.read_bytes(), old_record)
+        m.repair_startup(self.home, True)
+        m.uninstall(self.home, True)
+        self.assertFalse(helper.exists())
+
+    def test_startup_repair_manual_install_without_record(self):
+        helper = self.home / m.LAUNCH_HELPER
+        helper.write_bytes((m.ROOT / 'tests/fixtures/launch-before-startup-fix.lua.txt').read_bytes())
+        m.repair_startup(self.home, True)
+        self.assertEqual(helper.read_bytes(), (m.PAYLOAD / m.LAUNCH_HELPER).read_bytes())
+        self.assertFalse((self.home / m.STATE).exists())
+
+    def test_startup_repair_refuses_unknown_record(self):
+        helper, state, record = self.broken_installation()
+        record['files'][m.LAUNCH_HELPER]['after'] = 'unknown'
+        state.write_text(json.dumps(record))
+        before = (helper.read_bytes(), state.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'record does not match'):
+            m.repair_startup(self.home, True)
+        self.assertEqual((helper.read_bytes(), state.read_bytes()), before)
+
 
 if __name__ == '__main__':
     unittest.main()

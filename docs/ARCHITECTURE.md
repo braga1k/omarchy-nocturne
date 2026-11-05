@@ -18,6 +18,12 @@ Each asynchronous process owns its request ticket. Old completions cannot cancel
 
 The border uses the active global decoration settings. The public package does not claim complete support for application-specific decoration overrides or gradients with more than two stops. No client resizing or persistent per-window tags are required.
 
+Configuration loading must be safe before the input and event-loop managers
+exist. An idle cancellation does not force a property refresh. The watchdog is
+created lazily on the first supported, animation-enabled launch request, then
+reused. `config.reloaded` alone must never initialize that timer. See the
+[startup incident and targeted recovery](RECOVERY.md).
+
 ## Shortcut presentation
 
 The native command still enumerates bindings and dispatches the chosen action. The menu only separates the displayed `keys → action` text into an action label and keycaps. Selection returns the original input string, including its spacing, to preserve the caller's record lookup. Generic dmenu selectors retain their normal presentation.

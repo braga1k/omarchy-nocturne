@@ -2,6 +2,22 @@
 
 This page distinguishes implementation tests, visual review and unverified hardware behaviour. A numeric review is not a universal quality or compatibility guarantee.
 
+## Startup regression — corrected in v1.0.1
+
+The initial release's reload and motion tests missed a cold-start crash. On
+5 November 2026, the helper was implicated by the compositor backtrace: an idle
+`config.reloaded` cancellation forced a property refresh before the input manager
+existed. Eager timer creation also broke offline configuration verification.
+Earlier review scores did **not** demonstrate safe startup and must not be read
+as certification of it.
+
+The corrected helper skips idle refreshes and creates the watchdog on the first
+valid launch. The affected desktop was recovered through UWSM; native offline
+configuration verification passes. The release adds separate required Lua tests
+for cold start and offline verification, with negative controls that reproduce
+both errors in the original helper, plus targeted repair tests. Full SDDM login
+and physical reboot remain untested in this release pass. See [recovery](RECOVERY.md).
+
 ## Tested environment
 
 - Omarchy 4.0.6-1; Lua Hyprland 0.56.2-4; Quickshell 0.3.2.r7.g2b4501a-1.

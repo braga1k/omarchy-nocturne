@@ -14,6 +14,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 PAYLOAD = ROOT / 'payload'
 STATE = '.local/state/omarchy-nocturne/install.json'
+LAUNCH_HELPER = '.config/hypr/nocturne-launch.lua'
+BROKEN_LAUNCH_SHA256 = '785701d2993f367c34d22bd499cdd757518b316f26fc112c04ccad2758bbb887'
 BEGIN = '-- BEGIN OMARCHY NOCTURNE'
 END = '-- END OMARCHY NOCTURNE'
 BLOCK = BEGIN + '\nrequire("hypr.nocturne-motion")\nrequire("hypr.nocturne-launch")\n' + END + '\n'
@@ -207,9 +209,45 @@ def uninstall(home, apply=False):
     print('Uninstalled. Select your previous theme, then reload Hyprland and the shell.')
 
 
+def repair_startup(home, apply=False):
+    """Replace only the known broken helper; preserve uninstall's original backup.
+
+    Write the helper first. If updating the install record is interrupted, a
+    repeat accepts the corrected helper and completes the record update.
+    Never roll a repaired helper back to the version that prevents login.
+    """
+    data = (PAYLOAD / LAUNCH_HELPER).read_bytes()
+    fixed = digest(data)
+    expected = json.loads((ROOT / 'payload.sha256.json').read_text())
+    if expected.get(LAUNCH_HELPER) != fixed:
+        raise ValueError('Launch helper differs from payload.sha256.json.')
+    path = safe_path(home, LAUNCH_HELPER)
+    current = digest(path.read_bytes())
+    allowed = (BROKEN_LAUNCH_SHA256, fixed)
+    if current not in allowed:
+        raise ValueError('Custom launch helper differs; nothing changed. See docs/RECOVERY.md.')
+    state_path = safe_path(home, STATE)
+    record = json.loads(state_path.read_text()) if state_path.exists() else None
+    entry = None
+    if record is not None:
+        entry = record.get('files', {}).get(LAUNCH_HELPER)
+        if record.get('status') != 'installed' or not entry or entry.get('after') not in allowed:
+            raise ValueError('Installation record does not match this repair; nothing changed.')
+    print('Repair only the launch helper; preserve theme, preferences and uninstall backups.')
+    if not apply:
+        print('Dry run. Add --apply to repair.')
+        return
+    if current != fixed:
+        atomic(path, data)
+    if entry is not None and entry['after'] != fixed:
+        entry['after'] = fixed
+        atomic(state_path, (json.dumps(record, indent=2) + '\n').encode(), mode=0o600)
+    print('Startup helper repaired. Verify configuration and follow docs/RECOVERY.md.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['install', 'uninstall'])
+    parser.add_argument('action', choices=['install', 'uninstall', 'repair-startup'])
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--allow-untested', action='store_true', help='Allow an Omarchy version other than 4.0.6 (Lua is still required).')
     args = parser.parse_args()
@@ -223,6 +261,8 @@ def main():
             if version != '4.0.6' and not args.allow_untested:
                 raise ValueError(f'Tested on Omarchy 4.0.6, found {version}. See compatibility notes.')
             install(home, stock, args.apply)
+        elif args.action == 'repair-startup':
+            repair_startup(home, args.apply)
         else:
             uninstall(home, args.apply)
     except (ValueError, OSError, subprocess.SubprocessError) as error:

@@ -2,6 +2,7 @@
 -- No client resizing, compositor plugin, or persistent per-window overrides.
 if nocturneLaunch then nocturneLaunch.cancel() end
 local M = { token = '', phase = 'idle', remaining = 0, address = '', classes = {} }
+local startWatchdog
 nocturneLaunch = M
 local HOLD, QUIET = 'nocturne-launch-held', 'nocturne-launch-handoff'
 
@@ -22,7 +23,9 @@ function M.cancel(token)
   M.phase, M.address, M.remaining = 'idle', '', 0
   tag(address, '-' .. HOLD)
   tag(address, '-' .. QUIET)
-  hl.exec_scheduled_prop_refresh_immediately()
+  -- config.reloaded also runs at cold start, before the input manager exists.
+  -- Only a real window handoff needs an immediate property refresh.
+  if address ~= '' then hl.exec_scheduled_prop_refresh_immediately() end
   return 'ok'
 end
 
@@ -48,6 +51,7 @@ function M.arm(token, classes)
     if type(value) == 'string' and #value > 1 then M.classes[string.lower(value)] = true end
   end
   if next(M.classes) == nil then return 'unsupported' end
+  startWatchdog()
   M.phase, M.remaining = 'armed', 7000
   return 'armed'
 end
@@ -97,11 +101,14 @@ local function cleanupTags()
   end
 end
 cleanupTags()
-hl.on('config.reloaded', function() M.cancel(); cleanupTags() end)
 
 -- A shell crash, canceled launcher or failed capture cannot strand a client.
 -- The already-active, single-instance case may produce no activation event.
-hl.timer(function()
+-- Start only when a launch is armed: --verify-config has no event loop.
+local watchdog
+startWatchdog = function()
+  if watchdog then return end
+  watchdog = hl.timer(function()
   if M.phase == 'idle' then return end
   M.remaining = M.remaining - 100
   if M.phase == 'armed' and M.remaining <= 6600 then
@@ -110,5 +117,7 @@ hl.timer(function()
   end
   if M.remaining <= 0 then M.cancel() end
 end, { timeout = 100, type = 'repeat' })
+end
+hl.on('config.reloaded', function() M.cancel(); cleanupTags() end)
 
 return M
