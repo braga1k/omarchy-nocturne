@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "nocturne.dock",
+  "name": "Nocturne Dock",
+  "version": "1.1.0",
+  "author": "Omarchy",
+  "description": "Native dock with organic app grid and selection-to-window morph",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Dock.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.dock"
+  }
+}

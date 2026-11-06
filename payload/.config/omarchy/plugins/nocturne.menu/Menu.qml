@@ -148,6 +148,15 @@ Item {
     return JSON.stringify({phase:launchMorph.phase, active:launchMorph.active, progress:launchMorph.progress,
       target:!!launchMorph.target,address:launchMorph.address,origin:launchMorph.origin,destination:launchMorph.destination})
   }
+  // Read-only probe for post-update checks; no launch, focus or helper mutation.
+  function inspectCompatibility() {
+    var required = ["entryName", "entrySubtext", "sortedEntries", "iconSource", "refreshIcons", "launch", "remove"]
+    var missing = required.filter(function(name) { return !root.appLibrary || typeof root.appLibrary[name] !== "function" })
+    var apps = root.item("apps")
+    var appsMenu = !!apps && apps.kind === "menu" && apps.provider === "apps"
+    return JSON.stringify({contract: 1, ok: missing.length === 0 && appsMenu, missing: missing, appsMenu: appsMenu,
+      morph: typeof launchMorph.start === "function", phase: launchMorph.phase})
+  }
   property bool deleteConfirmOpen: false
   property var deleteTarget: null
   onOpenedChanged: if (!opened) { deleteConfirmOpen = false; deleteTarget = null }

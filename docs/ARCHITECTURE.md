@@ -39,3 +39,18 @@ The Lua helper declines Omarchy’s keybinding-scanner context, whose callable t
 ## Bounded renderer resources
 
 The morph uses a fixed native-resolution intermediate surface for each destination, with the existing overshoot allowance. The shader samples the visible portion without scaling the content; fully covered interior fragments skip border-gradient work. The inactive source is released. The watchdog remains lazily constructed and is disabled after cancel/finish, then re-enabled on the next supported arm. No idle compositor timer is created at config load. See PERFORMANCE.md for measured effects and limitations.
+
+## Optional app grid and update diagnostics
+
+`optional/app-grid` contains the `nocturne.dock` service clone for Omarchy 4.5.
+It reuses native AppLibrary through a local Loader because service clones receive
+a restricted shell facade. It observes the user/default dock settings through
+FileView and retains native pin management. AppGrid animates a clipped surface
+with ElasticMotion, holds the source until the morph overlay is presented, and
+releases keyboard/mask ownership as soon as it is logically closed. Click and
+Enter share the same launch path. Reduced motion bypasses the morph.
+
+The post-update hook runs bounded read-only checks and writes a private report.
+It never rewrites desktop settings or restores an older package automatically.
+`--dock`, `--workspaces`, and `--global-workspaces` are optional checks requiring
+those active components. They do not certify animation presentation.

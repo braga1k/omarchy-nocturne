@@ -56,11 +56,16 @@ def atomic(path, data, mode=None):
             os.unlink(name)
 
 
-def plugin_specs():
-    return [json.loads(p.read_text()) for p in sorted((PAYLOAD / '.config/omarchy/plugins').glob('*/manifest.json'))]
+def payload_roots(app_grid=False):
+    return [PAYLOAD] + ([ROOT / 'optional/app-grid'] if app_grid else [])
 
 
-def merge_shell(config):
+def plugin_specs(app_grid=False):
+    return [json.loads(p.read_text()) for payload in payload_roots(app_grid)
+            for p in sorted((payload / '.config/omarchy/plugins').glob('*/manifest.json'))]
+
+
+def merge_shell(config, app_grid=False):
     result = copy.deepcopy(config)
     bar = result.setdefault('bar', {})
     layout = bar.setdefault('layout', {})
@@ -70,7 +75,7 @@ def merge_shell(config):
     bar['id'] = 'nocturne.bar'
     bar['autoHide'] = False
     bar['transparent'] = True
-    for spec in plugin_specs():
+    for spec in plugin_specs(app_grid):
         source = spec.get('omarchy', {}).get('clonedFrom')
         if not source or 'bar' in spec['kinds']:
             continue
@@ -97,22 +102,35 @@ def merge_shell(config):
     return result
 
 
-def prepare(home, stock):
-    expected = json.loads((ROOT / 'payload.sha256.json').read_text())
-    actual = {str(p.relative_to(PAYLOAD)): digest(p.read_bytes()) for p in PAYLOAD.rglob('*') if p.is_file()}
-    if actual != expected:
-        raise ValueError('Payload differs from payload.sha256.json. Use a complete release checkout.')
+def prepare(home, stock, app_grid=False):
+    if app_grid:
+        for relative in ['shell/plugins/dock/AppGrid.qml', 'shell/services/AppLibrary.qml']:
+            if not (stock / relative).is_file():
+                raise ValueError('The optional app grid requires the Omarchy 4.5 native dock and AppLibrary.')
     files = {}
-    for src in sorted(PAYLOAD.rglob('*')):
-        if src.is_file():
-            rel = str(src.relative_to(PAYLOAD))
-            dest = safe_path(home, rel)
-            if dest.exists() and dest.read_bytes() != src.read_bytes():
-                raise ValueError(f'Existing custom file differs: {dest}. Move it aside before installation.')
-            files[rel] = src.read_bytes()
+    for payload in payload_roots(app_grid):
+        manifest = ROOT / ('optional/app-grid.sha256.json' if payload != PAYLOAD else 'payload.sha256.json')
+        expected = json.loads(manifest.read_text())
+        actual = {str(p.relative_to(payload)): digest(p.read_bytes()) for p in payload.rglob('*') if p.is_file()}
+        if actual != expected:
+            raise ValueError(f'Payload differs from {manifest.name}. Use a complete release checkout.')
+        for src in sorted(payload.rglob('*')):
+            if src.is_file():
+                rel = str(src.relative_to(payload))
+                if rel in files:
+                    raise ValueError(f'Duplicate payload path: {rel}')
+                dest = safe_path(home, rel)
+                if dest.exists() and dest.read_bytes() != src.read_bytes():
+                    raise ValueError(f'Existing custom file differs: {dest}. Move it aside before installation.')
+                files[rel] = src.read_bytes()
     shell = safe_path(home, '.config/omarchy/shell.json')
     config = json.loads(shell.read_text() if shell.exists() else (stock / 'config/omarchy/shell.json').read_text())
-    replacements = {s.get('omarchy', {}).get('clonedFrom') for s in plugin_specs()}
+    unsupported = [name for name, entries in config.get('bar', {}).get('layout', {}).items()
+                   if name not in ('left', 'center', 'right') and entries]
+    if unsupported:
+        raise ValueError('Nocturne bar does not yet render these nonempty sections: '
+                         + ', '.join(unsupported) + '. See docs/UPDATE-COMPATIBILITY.md before installing.')
+    replacements = {s.get('omarchy', {}).get('clonedFrom') for s in plugin_specs(app_grid)}
     active_ids = [config.get('bar', {}).get('id', '')]
     for entries in [*config.get('bar', {}).get('layout', {}).values(), config.get('plugins', [])]:
         active_ids.extend(e if isinstance(e, str) else e.get('id', '') for e in entries)
@@ -122,7 +140,7 @@ def prepare(home, stock):
         manifest = safe_path(home, '.config/omarchy/plugins/' + plugin_id + '/manifest.json')
         if manifest.is_file() and json.loads(manifest.read_text()).get('omarchy', {}).get('clonedFrom') in replacements:
             raise ValueError(f'Active custom clone {plugin_id} overlaps Nocturne. Switch that plugin back to its native source before installing.')
-    files['.config/omarchy/shell.json'] = (json.dumps(merge_shell(config), indent=2) + '\n').encode()
+    files['.config/omarchy/shell.json'] = (json.dumps(merge_shell(config, app_grid), indent=2) + '\n').encode()
     hypr = safe_path(home, '.config/hypr/hyprland.lua')
     if not hypr.is_file():
         raise ValueError('This package requires the Omarchy Lua-based Hyprland configuration.')
@@ -136,11 +154,11 @@ def prepare(home, stock):
     return files
 
 
-def install(home, stock, apply=False):
+def install(home, stock, apply=False, app_grid=False):
     state_path = safe_path(home, STATE)
     if state_path.exists():
         raise ValueError('An installation is already recorded. Uninstall it before changing versions.')
-    files = prepare(home, stock)
+    files = prepare(home, stock, app_grid)
     print(f'{len(files)} user-local files; shell preferences merged; wallpaper and fonts preserved.')
     if not apply:
         print('Dry run. Add --apply to install.')
@@ -251,7 +269,10 @@ def main():
     parser.add_argument('action', choices=['install', 'uninstall', 'repair-startup'])
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--allow-untested', action='store_true', help='Allow an Omarchy version other than 4.0.6 (Lua is still required).')
+    parser.add_argument('--app-grid', action='store_true', help='Install the optional Omarchy 4.5 Super+Alt+Space grid clone.')
     args = parser.parse_args()
+    if args.app_grid and args.action != 'install':
+        parser.error('--app-grid is an installation option; uninstall restores every recorded component.')
     if os.geteuid() == 0:
         parser.error('Run as your desktop user, without sudo.')
     home = Path.home()
@@ -261,7 +282,7 @@ def main():
             version = subprocess.check_output(['pacman', '-Q', 'omarchy'], text=True).split()[1].rsplit('-', 1)[0]
             if version != '4.0.6' and not args.allow_untested:
                 raise ValueError(f'Tested on Omarchy 4.0.6, found {version}. See compatibility notes.')
-            install(home, stock, args.apply)
+            install(home, stock, args.apply, app_grid=args.app_grid)
         elif args.action == 'repair-startup':
             repair_startup(home, args.apply)
         else:

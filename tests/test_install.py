@@ -25,6 +25,57 @@ class InstallerTests(unittest.TestCase):
             'plugins': [{'id': 'custom.service', 'option': 'keep'}], 'disabledPlugins': ['omarchy.emojis']}
         (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
 
+    def enable_grid_fixture(self):
+        for relative in ['shell/plugins/dock/AppGrid.qml', 'shell/services/AppLibrary.qml']:
+            p = self.stock / relative
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text('// test dependency')
+        self.config['dock'] = {'position': 'left', 'pinned': ['example.desktop']}
+        self.config['plugins'].append({'id': 'omarchy.dock', 'customOption': 42})
+        (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
+
+    def test_optional_grid_roundtrip_and_native_route(self):
+        self.enable_grid_fixture()
+        m.install(self.home, self.stock, True, app_grid=True)
+        installed = self.home / '.config/omarchy/plugins/nocturne.dock/AppGrid.qml'
+        self.assertTrue(installed.is_file())
+        config = json.loads((self.home / '.config/omarchy/shell.json').read_text())
+        self.assertEqual(config['dock'], self.config['dock'])
+        self.assertIn({'id': 'nocturne.dock', 'customOption': 42}, config['plugins'])
+        self.assertIn('omarchy.dock', config['disabledPlugins'])
+        self.assertIn('nocturne.dock', config['cloneSourceRestores'])
+        record = json.loads((self.home / m.STATE).read_text())
+        self.assertIn(str(installed.relative_to(self.home)), record['files'])
+        m.uninstall(self.home, True)
+        self.assertFalse(installed.exists())
+        self.assertFalse((self.home / m.STATE).exists())
+
+    def test_optional_grid_requires_native_dependencies(self):
+        with self.assertRaisesRegex(ValueError, 'requires the Omarchy 4.5'):
+            m.install(self.home, self.stock, True, app_grid=True)
+        self.assertFalse((self.home / m.STATE).exists())
+
+    def test_optional_grid_preserves_explicit_disable(self):
+        self.enable_grid_fixture()
+        self.config['plugins'] = []
+        self.config['disabledPlugins'].append('omarchy.dock')
+        (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
+        files = m.prepare(self.home, self.stock, app_grid=True)
+        config = json.loads(files['.config/omarchy/shell.json'])
+        self.assertNotIn({'id': 'nocturne.dock'}, config['plugins'])
+        self.assertIn('omarchy.dock', config['disabledPlugins'])
+
+    def test_unsupported_bar_sections_refused_without_writes(self):
+        for section in ['centerBegin', 'centerEnd', 'tray']:
+            with self.subTest(section=section):
+                self.config['bar']['layout'][section] = [{'id': 'omarchy.weather'}]
+                (self.stock / 'config/omarchy/shell.json').write_text(json.dumps(self.config))
+                before = {str(p): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}
+                with self.assertRaisesRegex(ValueError, section):
+                    m.install(self.home, self.stock, True)
+                self.assertEqual(before, {str(p): p.read_bytes() for p in self.home.rglob('*') if p.is_file()})
+                del self.config['bar']['layout'][section]
+
     def test_roundtrip_and_preferences(self):
         original = self.hypr.read_bytes()
         m.install(self.home, self.stock, True)

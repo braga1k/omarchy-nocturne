@@ -17,7 +17,7 @@ hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1.8, bezier = "noc
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1.2, bezier = "nocturneIn" })
 
 -- Os componentes locais animam o cartão em QML, sem escalar o ecrã inteiro.
-hl.layer_rule({ match = { namespace = "^omarchy-(menu|osd|emojis|clipboard)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^omarchy-(dock-apps|menu|osd|emojis|clipboard)$" }, no_anim = true, animation = "none" })
 -- As notificações nativas conservam o serviço original e recebem uma entrada discreta.
 hl.layer_rule({ match = { namespace = "^omarchy-notifications$" }, no_anim = false, animation = "popin 98%" })
 
@@ -34,4 +34,4 @@ hl.config({ decoration = {
 } })
 hl.layer_rule({ match = { namespace = "^omacontrol$" }, blur = true, ignore_alpha = 0.3, no_anim = true })
 -- Mesmo material no lançador e nos painéis; ignora a área transparente fora do cartão.
-hl.layer_rule({ match = { namespace = "^omarchy-(bar|menu|keyboard-panel|osd|emojis|clipboard|notifications)$" }, blur = true, blur_popups = true, ignore_alpha = 0.3 })
+hl.layer_rule({ match = { namespace = "^omarchy-(dock-apps|bar|menu|keyboard-panel|osd|emojis|clipboard|notifications)$" }, blur = true, blur_popups = true, ignore_alpha = 0.3 })

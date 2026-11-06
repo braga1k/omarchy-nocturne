@@ -22,6 +22,26 @@ class PackageTests(unittest.TestCase):
                 tomllib.loads(path.read_text())
         self.assertEqual(actual, json.loads((ROOT / 'payload.sha256.json').read_text()))
 
+    def test_optional_grid_manifest_and_local_imports(self):
+        payload = ROOT / 'optional/app-grid'
+        actual = {str(p.relative_to(payload)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in payload.rglob('*') if p.is_file()}
+        self.assertEqual(actual, json.loads((ROOT / 'optional/app-grid.sha256.json').read_text()))
+        plugin = payload / '.config/omarchy/plugins/nocturne.dock'
+        manifest = json.loads((plugin / 'manifest.json').read_text())
+        self.assertEqual(manifest['id'], 'nocturne.dock')
+        self.assertEqual(manifest['omarchy']['clonedFrom'], 'omarchy.dock')
+        for entry in manifest['entryPoints'].values():
+            self.assertTrue((plugin / entry).is_file())
+        for qml in plugin.glob('*.qml'):
+            for relative in re.findall(r'^import "([^"]+)"', qml.read_text(), re.M):
+                path = (qml.parent / relative).resolve()
+                if not path.exists():
+                    path = PAYLOAD / path.relative_to(payload)
+                self.assertTrue(path.exists(), str(path))
+            self.assertNotIn('/home/b1k', qml.read_text())
+            self.assertNotIn('b1k.', qml.read_text())
+
     def test_plugin_entry_points_exist(self):
         for path in PAYLOAD.rglob('manifest.json'):
             manifest = json.loads(path.read_text())

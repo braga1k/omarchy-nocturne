@@ -57,7 +57,7 @@ again; do not restore the original broken helper from a backup.
 
 - The reported cold-start failure was diagnosed from the compositor backtrace.
 - The affected installation returned to the desktop through UWSM after repair.
-- The complete installed configuration passes native `Hyprland --verify-config`.
+- On the 4.0.6 recovery environment, the complete installed configuration passed native `Hyprland --verify-config`.
 - Lua regression tests separately model cold startup and offline verification,
   and reject the original helper in both cases. They also cover runtime handoff,
   timeout recovery, reduced motion and configuration reload.
@@ -83,3 +83,21 @@ omarchy restart shell
 ```
 
 Keep the installation record and original backups. If uninstall reports a conflict, preserve and reconcile your local edits before proceeding; do not delete the state or force overwrite. The original preferences are restored by uninstall and merged again by install. Changes made to managed files since installation require that explicit reconciliation. Manual installations should compare the payload and preserve their own backups.
+
+## v1.1.0 and Omarchy 4.5
+
+Read [4.5 compatibility](UPDATE-COMPATIBILITY.md) before uninstalling. The new bar
+sections are not supported by this clone: if your original pre-Nocturne layout
+uses them, prepare a compatible layout or postpone the update. Preserve your
+current settings and the installation record before changing anything.
+
+For a compatible 4.5 layout, use `install --allow-untested --app-grid` for the dry
+run and `install --allow-untested --app-grid --apply` for the install steps above
+if you want the new grid. Omit `--app-grid` to keep the native service. Uninstall
+uses the recorded file list and needs no grid flag. The global workspace example
+is a separate manual preference and is not affected by uninstall.
+
+The native 4.5 offline verifier has a separately reproduced cursor-timer crash;
+see the compatibility note. A verifier crash is not itself evidence that the
+running desktop or Nocturne launch helper crashed. Keep the current session while
+checking `hyprctl reload` and `hyprctl configerrors`.

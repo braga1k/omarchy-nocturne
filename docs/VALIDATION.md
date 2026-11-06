@@ -13,7 +13,7 @@ as certification of it.
 
 The corrected helper skips idle refreshes and creates the watchdog on the first
 valid launch. The affected desktop was recovered through UWSM; native offline
-configuration verification passes. The release adds separate required Lua tests
+configuration verification passed on that 4.0.6 environment. The release adds separate required Lua tests
 for cold start and offline verification, with negative controls that reproduce
 both errors in the original helper, plus targeted repair tests. Full SDDM login
 and physical reboot remain untested in this release pass. See [recovery](RECOVERY.md).
@@ -68,3 +68,32 @@ After round 2, a stale menu description was corrected, punctuation and wheel key
 ## Public media
 
 Comparisons use the actual stock and Nocturne QML components with identical synthetic menu/app data, a neutral generated QML background and Noto Sans. Stock uses Tokyo Night and square corners; Nocturne uses its packaged theme. The Music app is `tools/demo-window.qml`; it is a real Qt window, not a composited mock-up. The demonstration host supplies a small synthetic application library; normal installed launches use Omarchy's native AppLibrary. No private desktop recording is redistributed.
+
+## v1.1.0 compatibility and app-grid evidence
+
+The 4.5 update was tested on Omarchy 4.5.0-3, with the same Hyprland and
+Quickshell versions above. The old launch callback reproduced the missing-private-
+property failure in isolated QML; the corrected path passed without that property.
+Both launchers passed full/half/quarter native launches on landscape and portrait
+outputs. Grid tests also exercised actual click/Enter, Escape, empty filtering and
+three rapid close/reopen cycles per monitor. The opening used the exact native
+command bound to Super+Alt+Space; synthetic injection did not certify the physical
+key chord. Global and per-monitor workspace modes each passed 14 selection cases;
+global mode also survived a reload with existing windows preserved.
+
+The public grid clip uses the shipped AppGrid component and a synthetic library
+with four demo entries, Noto Sans and a neutral background. It launches the real
+`tools/demo-window.qml` through the morph helper. It demonstrates the animation,
+not application discovery or arbitrary application compatibility. Public media
+contains no user applications, personal wallpaper or desktop configuration.
+
+The optional installer uses the same transaction/rollback and uninstall path as
+the base payload. Tests cover optional dependency refusal, namespace/native IPC
+mapping, preferences, explicit disable, hashes and import resolution. Unsupported
+native 4.5 bar sections are refused before writes. A full fresh native 4.5 shell
+port, floating dock interaction parity, hotplug and login/reboot remain unverified.
+No new council score is assigned to v1.1.0; earlier scores keep their original scope.
+
+The native 4.5 offline verifier separately crashes while removing a startup-cursor
+timer, with either workspace implementation. Live configuration reload passed.
+See [compatibility](UPDATE-COMPATIBILITY.md#offline-verification-on-45).

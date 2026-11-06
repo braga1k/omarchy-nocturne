@@ -78,6 +78,14 @@ function mergeMenuSources(defaultItems, userItems) {
       for (var k in prior) merged[k] = prior[k]
       for (var k2 in entry) merged[k2] = entry[k2]
       merged.id = entry.id
+      // Nocturne owns its Apps list and selection-to-window transition.
+      // New upstream defaults route Apps to the dock. Adapt defaults only;
+      // an explicit user action or redirect still wins in the next source.
+      if (s === 0 && entry.id === "apps" && entry.provider === "apps") {
+        merged.kind = "menu"
+        merged.action = ""
+        merged.target = ""
+      }
       nextItems[entry.id] = merged
     }
   }

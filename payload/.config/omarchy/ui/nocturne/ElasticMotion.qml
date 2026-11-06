@@ -6,6 +6,7 @@ Item {
   id: root
   property bool active: false
   property bool ready: true
+  property bool reduced: false
   property real closedWidth: 0.86
   property real closedHeight: 0.9
   property real progress: 0
@@ -26,6 +27,7 @@ Item {
   Component.onCompleted: retarget()
 
   Behavior on progress {
+    enabled: !root.reduced
     SpringAnimation {
       id: springMotion
       spring: 5

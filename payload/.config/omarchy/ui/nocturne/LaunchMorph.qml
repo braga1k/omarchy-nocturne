@@ -20,7 +20,6 @@ Item {
   property string appId: ""
   property string label: ""
   property string icon: ""
-  property int feedbackSerial: -1
   property var sourceVisual: ({labelX:50,labelY:20,labelWidth:240,iconX:13,iconY:17,iconSize:26,detail:"",detailY:0,detailSize:12})
   property string fontFamily: ""
   property int fontSize: 18
@@ -28,6 +27,7 @@ Item {
   property color surface: "#302e49"
   property color edge: "#aba7eb"
   property real startRadius: 10
+  property real startBorder: 1
   property real endRadius: 18
   property real nativeBorder: 2
   property real nativePower: 2
@@ -86,9 +86,15 @@ Item {
   function launchNative(request) {
     if (!request || request.launched) return
     request.launched = true
-    if (appLibrary) {
+    // Only use the public plugin capability. Omarchy 4.5 deliberately hides
+    // launchSerial/closeLaunchFeedback; native feedback owns its own lifecycle.
+    try {
+      if (!appLibrary || typeof appLibrary.launch !== "function") return false
       appLibrary.launch(request.id, request.label)
-      if (request.ticket === token) feedbackSerial = appLibrary.launchSerial
+      return true
+    } catch (error) {
+      console.warn("Nocturne native launch failed: " + error)
+      return false
     }
   }
   function completeArm(ticket, request, result) {
@@ -98,14 +104,14 @@ Item {
       launchNative(request)
       return
     }
-    launchNative(request)
+    if (!launchNative(request)) { cancel(); return }
     if (result.trim() !== "armed") { cancel(); return }
     phase = "waiting"
     Hyprland.refreshToplevels()
   }
   function start(id, name, iconSource, rect, index, visual) {
     // UI input cannot queue a second launch while arming the first request.
-    if (arm.running || arm.pendingRequest || !appLibrary) return false
+    if (arm.running || arm.pendingRequest || !appLibrary || typeof appLibrary.launch !== "function") return false
     cancel()
     if (visual) sourceVisual = visual
     appId = id; label = name; icon = iconSource; origin = rect; destination = rect
@@ -134,8 +140,6 @@ Item {
     target = null; address = ""; sourceIndex = -1
   }
   function finish() {
-    if (appLibrary && typeof appLibrary.closeLaunchFeedback === "function")
-      appLibrary.closeLaunchFeedback(feedbackSerial)
     cancel()
   }
   function consumeStatus(value) {
@@ -287,6 +291,7 @@ Item {
           width: root.origin.width; height: root.origin.height
           opacity: root.phase === "moving" || root.phase === "handoff" ? Math.max(0,1-root.age/110) : 1
           Rectangle {
+            visible: root.sourceVisual.iconSupport !== false
             x: root.sourceVisual.iconX-3; y: root.sourceVisual.iconY-3
             width: root.sourceVisual.iconSize+6; height:width; radius:8
             color: Qt.rgba(root.foreground.r,root.foreground.g,root.foreground.b,0.16)
@@ -296,10 +301,11 @@ Item {
             x:root.sourceVisual.iconX; y:root.sourceVisual.iconY
             width:root.sourceVisual.iconSize; height:width
             source:root.icon; fillMode:Image.PreserveAspectFit
-            sourceSize.width: width * Screen.devicePixelRatio
-            sourceSize.height: height * Screen.devicePixelRatio
+            sourceSize.width: root.sourceVisual.iconSourceSize || width * Screen.devicePixelRatio
+            sourceSize.height: root.sourceVisual.iconSourceSize || height * Screen.devicePixelRatio
           }
           Text {
+            visible: !root.sourceVisual.hideLabel
             x:root.sourceVisual.labelX; y:root.sourceVisual.labelY; width:root.sourceVisual.labelWidth
             text:root.label; textFormat:Text.PlainText; elide:Text.ElideRight
             font.family:root.fontFamily; font.pixelSize:root.fontSize; font.weight:Font.Medium; color:root.foreground
@@ -334,7 +340,7 @@ Item {
         property real extent: outset
         property real radius: root.startRadius+(root.endRadius-root.startRadius)*Math.min(1,root.progress)
         property real power: 2+(root.nativePower-2)*root.decorationMix
-        property real thickness: 1+(root.nativeBorder-1)*root.decorationMix
+        property real thickness: root.startBorder+(root.nativeBorder-root.startBorder)*root.decorationMix
         property real angle: root.nativeAngle
         property color firstColor: root.mixColor(root.edge,root.nativeFirst,root.decorationMix)
         property color lastColor: root.mixColor(root.edge,root.nativeLast,root.decorationMix)
